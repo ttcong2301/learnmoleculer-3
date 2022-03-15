@@ -2,11 +2,17 @@ const mongoose = require('mongoose');
 const {
 	PaymentMethods,
 	Status,
-} = require('../../constants/paymentMethods.constant');
+} = require('../../order/constants/paymentMethods.constant');
+const autoIncrement = require('mongoose-auto-increment');
 const orderSchema = new mongoose.Schema(
 	{
+		id: {
+			type: Number,
+			required: true,
+			unique: true,
+		},
 		userId: {
-			type: mongoose.Schema.Types.ObjectId,
+			type: Number,
 			required: true,
 		},
 		amount: {
@@ -49,5 +55,13 @@ const orderSchema = new mongoose.Schema(
 		timestamps: true,
 	}
 );
+
+autoIncrement.initialize(mongoose.connection);
+orderSchema.plugin(autoIncrement.plugin, {
+	model: `Order-id`,
+	field: 'id',
+	startAt: 1,
+	incrementBy: 1,
+});
 
 module.exports = mongoose.model('Order', orderSchema);

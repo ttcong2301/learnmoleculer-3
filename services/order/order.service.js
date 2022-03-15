@@ -1,6 +1,9 @@
 const _ = require('lodash');
 const { sign } = require('jsonwebtoken');
-const { PaymentMethods } = require('./constants/paymentMethods.constant');
+const {
+	PaymentMethods,
+	TransactionStatus,
+} = require('./constants/paymentMethods.constant');
 const { MoleculerClientError } = require('moleculer').Errors;
 
 module.exports = {
@@ -37,12 +40,7 @@ module.exports = {
 					address: 'string|optional',
 				},
 			},
-			handler: async function (ctx) {
-				const orderToCreate = ctx.params.body;
-				orderToCreate.userId = ctx.meta.auth.data._id;
-				const order = await ctx.call('OrderModel.create', [orderToCreate]);
-				return order;
-			},
+			handler: require('./actions/createOrder.action'),
 		},
 		pay: {
 			rest: {
@@ -56,7 +54,7 @@ module.exports = {
 			params: {
 				body: {
 					$$type: 'object',
-					orderId: 'string',
+					orderId: 'number',
 					method: {
 						type: 'string',
 						enum: Object.values(PaymentMethods),
@@ -95,7 +93,7 @@ module.exports = {
 					b_transactionNo: 'string',
 					b_transactionStatus: {
 						type: 'string',
-						enum: ['SUCCESS', 'FAIL'],
+						enum: Object.values(TransactionStatus),
 					},
 				},
 			},

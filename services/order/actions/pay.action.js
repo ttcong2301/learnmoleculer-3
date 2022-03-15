@@ -4,15 +4,16 @@ const {
 } = require('../constants/paymentMethods.constant');
 const randomstring = require('randomstring');
 const { MoleculerClientError } = require('moleculer').Errors;
+const _ = require('lodash');
 
 module.exports = async function (ctx) {
 	try {
-		const userid = ctx.meta.auth.data._id;
+		const userid = ctx.meta.auth.data.id;
 
 		const { orderId, method } = ctx.params.body;
 		const order = await ctx.call('OrderModel.findOne', [
 			{
-				_id: orderId,
+				id: orderId,
 				status: Status.PENDING,
 				userId: userid,
 			},
@@ -25,6 +26,17 @@ module.exports = async function (ctx) {
 				{ orderId }
 			);
 
+		if (order.paymentMethod) {
+			throw new MoleculerClientError(
+				'Order is in payment process',
+				400,
+				'ORDER_IS_PAID',
+				{
+					orderId,
+				}
+			);
+		}
+
 		const wallet = await ctx.call('WalletModel.findOne', [{ userId: userid }]);
 
 		if (method === PaymentMethods.WALLET) {
@@ -36,30 +48,24 @@ module.exports = async function (ctx) {
 					{ balance: wallet.balance }
 				);
 
-			const [updatedWallet, updatedOrder] = await ctx.mcall([
-				{
-					action: 'WalletModel.findOneAndUpdate',
-					params: [{ userId: userid }, { $inc: { balance: -order.amount } }],
-				},
-				{
-					action: 'OrderModel.findOneAndUpdate',
-					params: [
-						{ _id: orderId },
-						{
-							status: 'paid',
-							payDate: Date.now(),
-							paymentMethod: PaymentMethods.WALLET,
-							transactionNo: randomstring.generate({
-								length: 10,
-								charset: 'numeric',
-							}),
-						},
-						{ new: true },
-					],
-				},
+			const updatedWallet = await ctx.call('WalletModel.findOneAndUpdate', [
+				{ userId: userid },
+				{ $inc: { balance: -order.amount } },
 			]);
-
-			return updatedOrder;
+			const updatedOrder = await ctx.call('OrderModel.findOneAndUpdate', [
+				{ id: orderId },
+				{
+					status: Status.PAID,
+					payDate: Date.now(),
+					paymentMethod: PaymentMethods.WALLET,
+					transactionNo: randomstring.generate({
+						length: 10,
+						charset: 'numeric',
+					}),
+				},
+				{ new: true },
+			]);
+			return _.omit(updatedOrder, ['_id', '__v', 'updatedAt']);
 		}
 
 		if (method === PaymentMethods.ATM) {
@@ -72,7 +78,7 @@ module.exports = async function (ctx) {
 			});
 
 			await ctx.call('OrderModel.findOneAndUpdate', [
-				{ _id: orderId },
+				{ id: orderId },
 				{
 					partnerTransactionNo: transactonId,
 					paymentMethod: PaymentMethods.ATM,

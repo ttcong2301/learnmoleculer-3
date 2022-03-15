@@ -8,4 +8,8 @@ module.exports = {
 		PAID: 'paid',
 		CANCELED: 'canceled',
 	},
+	TransactionStatus: {
+		SUCCESS: 'SUCCESS',
+		FAILED: 'FAILED',
+	},
 };

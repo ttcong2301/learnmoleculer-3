@@ -1,13 +1,11 @@
 const { MoleculerClientError } = require('moleculer').Errors;
+const _ = require('lodash');
 
 module.exports = async function (ctx) {
 	try {
 		const orderId = ctx.params.params.id;
 
-		const order = await ctx.call('OrderModel.findOne', [
-			{ _id: orderId },
-			{ updatedAt: 0 },
-		]);
+		const order = await ctx.call('OrderModel.findOne', [{ id: orderId }]);
 
 		if (!order)
 			throw new MoleculerClientError(
@@ -18,7 +16,7 @@ module.exports = async function (ctx) {
 					orderId,
 				}
 			);
-		return order;
+		return _.omit(order, ['_id', 'updatedAt', '__v']);
 	} catch (error) {
 		throw new MoleculerClientError(error.message, 500, 'PAY_ERROR');
 	}
