@@ -1,9 +1,6 @@
 const { MoleculerClientError } = require('moleculer').Errors;
 const moment = require('moment');
-const {
-	Status,
-	TransactionStatus,
-} = require('../constants/paymentMethods.constant');
+const { Status, TransactionStatus } = require('../constants/payment.constant');
 
 module.exports = async function (ctx) {
 	try {

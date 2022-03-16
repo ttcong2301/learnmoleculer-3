@@ -1,4 +1,4 @@
-const { Status } = require('../../order/constants/paymentMethods.constant');
+const { Status } = require('../../order/constants/payment.constant');
 const moment = require('moment');
 module.exports = async function (ctx) {
 	try {

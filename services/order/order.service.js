@@ -3,7 +3,7 @@ const { sign } = require('jsonwebtoken');
 const {
 	PaymentMethods,
 	TransactionStatus,
-} = require('./constants/paymentMethods.constant');
+} = require('./constants/payment.constant');
 const { MoleculerClientError } = require('moleculer').Errors;
 
 module.exports = {

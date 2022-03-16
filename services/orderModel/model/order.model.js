@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const {
 	PaymentMethods,
 	Status,
-} = require('../../order/constants/paymentMethods.constant');
+} = require('../../order/constants/payment.constant');
 const autoIncrement = require('mongoose-auto-increment');
 const orderSchema = new mongoose.Schema(
 	{

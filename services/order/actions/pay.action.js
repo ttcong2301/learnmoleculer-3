@@ -1,7 +1,4 @@
-const {
-	Status,
-	PaymentMethods,
-} = require('../constants/paymentMethods.constant');
+const { Status, PaymentMethods } = require('../constants/payment.constant');
 const randomstring = require('randomstring');
 const { MoleculerClientError } = require('moleculer').Errors;
 const _ = require('lodash');

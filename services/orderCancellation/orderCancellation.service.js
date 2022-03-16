@@ -13,7 +13,7 @@ module.exports = {
 	crons: [
 		{
 			name: 'autoCancelOrder',
-			cronTime: '*/1 * * * *', // every 10 seconds
+			cronTime: '*/1 * * * *',
 			onTick: async function () {
 				await this.getLocalService('OrderCancellation').actions.cancelOrders();
 			},
