@@ -2,7 +2,7 @@ const { Status } = require('../../order/constants/payment.constant');
 const moment = require('moment');
 module.exports = async function (ctx) {
 	try {
-		const canceledOrders = await ctx.call('OrderModel.update', [
+		const canceledOrders = await this.broker.call('OrderModel.update', [
 			{
 				status: Status.PENDING,
 				createdAt: {

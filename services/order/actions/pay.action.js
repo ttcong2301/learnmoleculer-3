@@ -8,7 +8,7 @@ module.exports = async function (ctx) {
 		const userid = ctx.meta.auth.data.id;
 
 		const { orderId, method } = ctx.params.body;
-		const order = await ctx.call('OrderModel.findOne', [
+		const order = await this.broker.call('OrderModel.findOne', [
 			{
 				id: orderId,
 				status: Status.PENDING,
@@ -34,7 +34,9 @@ module.exports = async function (ctx) {
 			);
 		}
 
-		const wallet = await ctx.call('WalletModel.findOne', [{ userId: userid }]);
+		const wallet = await this.broker.call('WalletModel.findOne', [
+			{ userId: userid },
+		]);
 
 		if (method === PaymentMethods.WALLET) {
 			if (wallet.balance < order.amount)
@@ -45,23 +47,26 @@ module.exports = async function (ctx) {
 					{ balance: wallet.balance }
 				);
 
-			const updatedWallet = await ctx.call('WalletModel.findOneAndUpdate', [
-				{ userId: userid },
-				{ $inc: { balance: -order.amount } },
-			]);
-			const updatedOrder = await ctx.call('OrderModel.findOneAndUpdate', [
-				{ id: orderId },
-				{
-					status: Status.PAID,
-					payDate: Date.now(),
-					paymentMethod: PaymentMethods.WALLET,
-					transactionNo: randomstring.generate({
-						length: 10,
-						charset: 'numeric',
-					}),
-				},
-				{ new: true },
-			]);
+			const updatedWallet = await this.broker.call(
+				'WalletModel.findOneAndUpdate',
+				[{ userId: userid }, { $inc: { balance: -order.amount } }]
+			);
+			const updatedOrder = await this.broker.call(
+				'OrderModel.findOneAndUpdate',
+				[
+					{ id: orderId },
+					{
+						status: Status.PAID,
+						payDate: Date.now(),
+						paymentMethod: PaymentMethods.WALLET,
+						transactionNo: randomstring.generate({
+							length: 10,
+							charset: 'numeric',
+						}),
+					},
+					{ new: true },
+				]
+			);
 			return _.omit(updatedOrder, ['_id', '__v', 'updatedAt']);
 		}
 
@@ -74,7 +79,7 @@ module.exports = async function (ctx) {
 				charset: 'numeric',
 			});
 
-			await ctx.call('OrderModel.findOneAndUpdate', [
+			await this.broker.call('OrderModel.findOneAndUpdate', [
 				{ id: orderId },
 				{
 					partnerTransactionNo: transactonId,

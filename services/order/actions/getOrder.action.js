@@ -5,7 +5,9 @@ module.exports = async function (ctx) {
 	try {
 		const orderId = ctx.params.params.id;
 
-		const order = await ctx.call('OrderModel.findOne', [{ id: orderId }]);
+		const order = await this.broker.call('OrderModel.findOne', [
+			{ id: orderId },
+		]);
 
 		if (!order)
 			throw new MoleculerClientError(
