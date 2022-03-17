@@ -1,56 +1,39 @@
 const { Status, PaymentMethods } = require('../constants/payment.constant');
-const randomstring = require('randomstring');
 const { MoleculerClientError } = require('moleculer').Errors;
+const uuid = require('uuid').v4;
+const crypto = require('crypto');
+const fs = require('fs');
 const _ = require('lodash');
 
 module.exports = async function (ctx) {
 	try {
-		const userid = ctx.meta.auth.data.id;
-
+		const userId = ctx.meta.auth.data.id;
 		const { orderId, method } = ctx.params.body;
-		const order = await this.broker.call('OrderModel.findOne', [
-			{
-				id: orderId,
-				status: Status.PENDING,
-				userId: userid,
-			},
-		]);
-		if (!order)
+		if (
+			ctx.params.body.method === PaymentMethods.ATM &&
+			!ctx.params.body.bankId
+		) {
 			throw new MoleculerClientError(
-				'Order not found or is paid',
-				404,
-				'ORDER_NOT_FOUND',
-				{ orderId }
-			);
-
-		if (order.paymentMethod) {
-			throw new MoleculerClientError(
-				'Order is in payment process',
-				400,
-				'ORDER_IS_PAID',
-				{
-					orderId,
-				}
+				'BankId is required',
+				422,
+				'BANK_ID_REQUIRED'
 			);
 		}
 
-		const wallet = await this.broker.call('WalletModel.findOne', [
-			{ userId: userid },
+		const order = await this.broker.call('OrderModel.findOne', [
+			{
+				id: orderId,
+				userId,
+			},
 		]);
 
 		if (method === PaymentMethods.WALLET) {
-			if (wallet.balance < order.amount)
-				throw new MoleculerClientError(
-					'Insufficient balance',
-					400,
-					'INSUFFICIENT_BALANCE',
-					{ balance: wallet.balance }
-				);
+			const updatedWallet = await this.broker.call('Wallet.pay', {
+				userId,
+				amount: order.amount,
+				orderId: order.id,
+			});
 
-			const updatedWallet = await this.broker.call(
-				'WalletModel.findOneAndUpdate',
-				[{ userId: userid }, { $inc: { balance: -order.amount } }]
-			);
 			const updatedOrder = await this.broker.call(
 				'OrderModel.findOneAndUpdate',
 				[
@@ -59,30 +42,82 @@ module.exports = async function (ctx) {
 						status: Status.PAID,
 						payDate: Date.now(),
 						paymentMethod: PaymentMethods.WALLET,
-						transactionNo: randomstring.generate({
-							length: 10,
-							charset: 'numeric',
-						}),
 					},
-					{ new: true },
+					{ new: true, select: '-_id -__v -updatedAt' },
 				]
 			);
-			return _.omit(updatedOrder, ['_id', '__v', 'updatedAt']);
+			return updatedOrder;
 		}
 
 		if (method === PaymentMethods.ATM) {
 			const { bankId } = ctx.params.body;
+
+			const order = await this.broker.call('OrderModel.findOne', [
+				{
+					id: orderId,
+					userId,
+				},
+			]);
+			if (order.status === Status.PAID) {
+				throw new MoleculerClientError(
+					this.i18next.t('orderAlreadyPaid'),
+					400,
+					'ORDER_ALREADY_PAID'
+				);
+			}
+			if (order.status === Status.CANCELED) {
+				throw new MoleculerClientError(
+					this.i18next.t('orderAlreadyCanceled'),
+					400,
+					'ORDER_ALREADY_CANCELED'
+				);
+			}
+
+			if (order.paymentMethod) {
+				throw new MoleculerClientError(
+					'Order is in payment process',
+					400,
+					'ORDER_IS_PAID',
+					{
+						orderId,
+					}
+				);
+			}
+
 			const paymentURL = `https://payment.${bankId}.com/?orderId=${orderId}&amount=${order.amount}`;
 
-			const transactonId = randomstring.generate({
-				length: 10,
-				charset: 'numeric',
-			});
+			const transactionFromPartner = uuid();
+
+			const fakeDataFromPartner = {
+				b_amount: order.amount,
+				b_bankId: 'MB',
+				b_payDate: '15/3/2022 10:33',
+				b_transaction: transactionFromPartner,
+				b_transactionStatus: 'SUCCESS',
+			};
+			console.log(
+				'file: pay.action.js - line 103 - fakeDataFromPartner',
+				fakeDataFromPartner
+			);
+
+			// Emulate partner create signature
+			const privateKey = fs.readFileSync(
+				'D:/Project/payment/private.pem',
+				'utf-8'
+			);
+
+			const signer = crypto.createSign('RSA-SHA256');
+			signer.write(JSON.stringify(fakeDataFromPartner));
+			signer.end();
+
+			const signature = signer.sign(privateKey, 'base64');
+			console.log('file: pay.action.js - line 116 - signature', signature);
+			// end emulate partner create signature
 
 			await this.broker.call('OrderModel.findOneAndUpdate', [
 				{ id: orderId },
 				{
-					partnerTransactionNo: transactonId,
+					partnerTransaction: transactionFromPartner,
 					paymentMethod: PaymentMethods.ATM,
 					bankId,
 				},

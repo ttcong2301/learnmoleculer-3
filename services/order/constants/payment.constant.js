@@ -11,5 +11,6 @@ module.exports = {
 	TransactionStatus: {
 		SUCCESS: 'SUCCESS',
 		FAILED: 'FAILED',
+		CANCELED: 'CANCELED',
 	},
 };

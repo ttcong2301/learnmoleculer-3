@@ -4,21 +4,23 @@ const _ = require('lodash');
 module.exports = async function (ctx) {
 	try {
 		const orderId = ctx.params.params.id;
+		const userId = ctx.meta.auth.data.id;
 
 		const order = await this.broker.call('OrderModel.findOne', [
-			{ id: orderId },
+			{ id: orderId, userId },
+			['-_id', '-__v', '-__v', '-updatedAt'],
 		]);
 
 		if (!order)
 			throw new MoleculerClientError(
-				'Order not found ',
+				this.i18next.t('orderNotFound'),
 				404,
 				'ORDER_NOT_FOUND',
 				{
 					orderId,
 				}
 			);
-		return _.omit(order, ['_id', 'updatedAt', '__v']);
+		return order;
 	} catch (error) {
 		throw new MoleculerClientError(error.message, 500, 'PAY_ERROR');
 	}

@@ -38,14 +38,17 @@ const orderSchema = new mongoose.Schema(
 			enum: Object.values(Status),
 			default: Status.PENDING,
 		},
-		partnerTransactionNo: {
+		partnerTransaction: {
 			type: String,
 		},
-		transactionNo: {
+		transaction: {
 			type: String,
 		},
 		bankId: {
 			type: 'String',
+		},
+		expiredAt: {
+			type: Date,
 		},
 		cancellationReason: {
 			type: String,

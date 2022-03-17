@@ -1,28 +1,13 @@
-const Cron = require('moleculer-cron');
-
 const _ = require('lodash');
 const { MoleculerClientError } = require('moleculer').Errors;
 
 module.exports = {
-	name: 'OrderCancellation',
+	name: 'WalletHistory',
 
 	/**
 	 * Settings
 	 */
-	mixins: [Cron],
-	crons: [
-		{
-			name: 'autoCancelOrder',
-			cronTime: '*/10 * * * * *',
-			onTick: async function () {
-				await this.getLocalService('OrderCancellation').actions.cancelOrders();
-			},
-			timeZone: 'Asia/Ho_Chi_Minh',
-		},
-	],
-	settings: {
-		TIME_TO_CANCEL_ORDER_IN_MINUTES: 60 * 2,
-	},
+	settings: {},
 
 	/**
 	 * Dependencies
@@ -33,8 +18,23 @@ module.exports = {
 	 * Actions
 	 */
 	actions: {
-		cancelOrders: {
-			handler: require('./actions/cancelOrders.action'),
+		getWalletHistory: {
+			rest: {
+				method: 'POST',
+				path: '/walletHistory',
+				auth: {
+					strategies: ['jwt'],
+					mode: 'required',
+				},
+			},
+			params: {
+				body: {
+					$$type: 'object',
+					fromDate: 'string|optional',
+					toDate: 'string|optional',
+				},
+			},
+			handler(ctx) {},
 		},
 	},
 	/**

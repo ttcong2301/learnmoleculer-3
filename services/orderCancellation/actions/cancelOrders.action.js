@@ -5,10 +5,8 @@ module.exports = async function (ctx) {
 		const canceledOrders = await this.broker.call('OrderModel.update', [
 			{
 				status: Status.PENDING,
-				createdAt: {
-					$lte: moment(new Date())
-						.add(-this.settings.TIME_TO_CANCEL_ORDER_IN_MINUTES, 'minutes')
-						.toDate(),
+				expiredAt: {
+					$lte: Date.now(),
 				},
 			},
 			{

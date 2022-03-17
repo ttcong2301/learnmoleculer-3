@@ -1,10 +1,10 @@
 const _ = require('lodash');
-const { sign } = require('jsonwebtoken');
 const {
 	PaymentMethods,
 	TransactionStatus,
 } = require('./constants/payment.constant');
 const { MoleculerClientError } = require('moleculer').Errors;
+const i18next = require('i18next');
 
 module.exports = {
 	name: 'Order',
@@ -62,20 +62,6 @@ module.exports = {
 					bankId: 'string|optional',
 				},
 			},
-			hooks: {
-				before(ctx) {
-					if (
-						ctx.params.body.method === PaymentMethods.ATM &&
-						!ctx.params.body.bankId
-					) {
-						throw new MoleculerClientError(
-							'BankId is required',
-							400,
-							'BANK_ID_REQUIRED'
-						);
-					}
-				},
-			},
 			handler: require('./actions/pay.action'),
 		},
 		ipnReturn: {
@@ -90,20 +76,23 @@ module.exports = {
 					b_amount: 'number',
 					b_bankId: 'string',
 					b_payDate: 'string',
-					b_transactionNo: 'string',
+					b_transaction: 'string',
 					b_transactionStatus: {
 						type: 'string',
 						enum: Object.values(TransactionStatus),
 					},
 				},
 			},
-			handler: require('./actions/ipnReturn.action'),
+			handler: require('./actions/ipn.action'),
 		},
 		getOrder: {
 			rest: {
 				method: 'GET',
 				fullPath: '/order/:id',
-				auth: false,
+				auth: {
+					strategies: ['jwt'],
+					mode: 'required',
+				},
 			},
 			handler: require('./actions/getOrder.action'),
 		},
@@ -126,7 +115,22 @@ module.exports = {
 	/**
 	 * Service started lifecycle event handler
 	 */
-	async started() {},
+	async started() {
+		this.i18next = require('i18next');
+		await this.i18next.init({
+			lng: 'en',
+			debug: true,
+			resources: {
+				vi: {
+					translation: require('../../locales/vi.json'),
+				},
+				en: {
+					translation: require('../../locales/en.json'),
+				},
+			},
+		});
+		await this.i18next.changeLanguage('vi');
+	},
 
 	/**
 	 * Service stopped lifecycle event handler
