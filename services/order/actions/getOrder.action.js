@@ -1,5 +1,6 @@
 const { MoleculerClientError } = require('moleculer').Errors;
 const _ = require('lodash');
+const { response } = require('../../../helper/response');
 
 module.exports = async function (ctx) {
 	try {
@@ -20,7 +21,7 @@ module.exports = async function (ctx) {
 					orderId,
 				}
 			);
-		return order;
+		return response({ code: 200, data: order });
 	} catch (error) {
 		throw new MoleculerClientError(error.message, 500, 'PAY_ERROR');
 	}

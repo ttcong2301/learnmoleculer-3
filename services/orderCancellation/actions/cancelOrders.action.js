@@ -1,21 +1,37 @@
 const { Status } = require('../../order/constants/payment.constant');
 const moment = require('moment');
+const AsyncForEach = require('await-async-foreach');
+const { flow } = require('lodash');
 module.exports = async function (ctx) {
 	try {
-		const canceledOrders = await this.broker.call('OrderModel.update', [
+		const orders = await this.broker.call('OrderModel.findMany', [
 			{
 				status: Status.PENDING,
 				expiredAt: {
 					$lte: Date.now(),
 				},
 			},
-			{
-				status: Status.CANCELED,
-				cancellationReason:
-					'Payment time expired. Order must be paid within 2 hours',
-			},
 		]);
-		console.log('[cronJob] - canceledOrders: ', canceledOrders.n);
+
+		let canceledOrders = 0;
+		await AsyncForEach(
+			orders,
+			async (order) => {
+				await this.broker.call('OrderModel.updateOne', [
+					{
+						id: order.id,
+					},
+					{
+						status: Status.CANCELED,
+						cancellationReason:
+							'Payment time expired. Order must be paid within 2 hours',
+					},
+				]);
+				canceledOrders++;
+			},
+			'parallel'
+		);
+		console.log('[cronJob] - canceledOrders: ', canceledOrders);
 	} catch (error) {
 		console.log(error.message);
 	}

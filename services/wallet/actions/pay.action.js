@@ -4,54 +4,26 @@ const {
 	Status,
 	PaymentMethods,
 } = require('../../order/constants/payment.constant');
+const {
+	State,
+} = require('../../walletHistoryModel/constants/walletHistory.constant');
 
 const lock = new AsyncLock();
 
 module.exports = async function (ctx) {
 	return new this.Promise((resolve, reject) => {
 		try {
-			const { userId, amount, orderId } = ctx.params;
+			const { userId, amount, transaction } = ctx.params;
 			lock.acquire(userId, async (done) => {
 				// setTimeout(async () => {
-				const order = await this.broker.call('OrderModel.findOne', [
-					{
-						id: orderId,
-						userId,
-					},
-				]);
-
-				if (order.status === Status.PAID) {
-					return reject(
-						new MoleculerClientError(
-							'Order is already paid',
-							400,
-							'ORDER_ALREADY_PAID'
-						)
-					);
-				}
-				if (order.status === Status.CANCELED) {
-					return reject(
-						new MoleculerClientError(
-							'Order is already canceled',
-							400,
-							'ORDER_ALREADY_CANCELED'
-						)
-					);
-				}
-
-				if (order.paymentMethod) {
-					throw new MoleculerClientError(
-						'Order is in payment process',
-						400,
-						'ORDER_IS_PAID',
-						{
-							orderId,
-						}
-					);
-				}
-
 				const wallet = await this.broker.call('WalletModel.findOne', [
 					{ userId },
+				]);
+
+				const order = await this.broker.call('OrderModel.findOne', [
+					{
+						transaction,
+					},
 				]);
 
 				if (wallet.balance < order.amount)
@@ -62,10 +34,25 @@ module.exports = async function (ctx) {
 						{ balance: wallet.balance }
 					);
 
-				const updatedWallet = await this.broker.call(
-					'WalletModel.findOneAndUpdate',
-					[{ userId }, { $inc: { balance: -amount } }, { new: true }]
+				const existWalletHistory = await this.broker.call(
+					'WalletHistoryModel.findOne',
+					[
+						{
+							transaction,
+						},
+					]
 				);
+
+				if (existWalletHistory) {
+					reject(
+						new MoleculerClientError(
+							'Transaction already exist',
+							400,
+							'TRANSACTION_ALREADY_EXIST',
+							{ transaction }
+						)
+					);
+				}
 
 				const walletHistory = await this.broker.call(
 					'WalletHistoryModel.create',
@@ -73,16 +60,37 @@ module.exports = async function (ctx) {
 						{
 							userId,
 							amount,
+							transaction,
 							balanceBefore: wallet.balance,
-							balanceAfter: updatedWallet.balance,
+							balanceAfter: wallet.balance - amount,
 							serviceId: 1, // common payment
 							date: Date.now(),
 						},
 					]
 				);
 				if (walletHistory.id) {
-					resolve(updatedWallet);
-					done();
+					const updatedWallet = await this.broker.call(
+						'WalletModel.findOneAndUpdate',
+						[{ userId }, { $inc: { balance: -amount } }, { new: true }]
+					);
+					if (updatedWallet.id) {
+						const updatedWalletHistory = await this.broker.call(
+							'WalletHistoryModel.findOneAndUpdate',
+							[
+								{
+									transaction,
+								},
+								{
+									$set: {
+										state: State.SUCCEEDED,
+									},
+								},
+								{ new: true },
+							]
+						);
+						resolve(updatedWallet);
+						done();
+					}
 				}
 				// }, 2000);
 			});

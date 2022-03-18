@@ -22,7 +22,7 @@ module.exports = {
 			params: {
 				userId: 'number',
 				amount: 'number',
-				orderId: 'number',
+				transaction: 'string',
 			},
 			handler: require('./actions/pay.action'),
 		},

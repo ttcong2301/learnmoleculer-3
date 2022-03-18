@@ -4,6 +4,7 @@ const { Status, TransactionStatus } = require('../constants/payment.constant');
 const _ = require('lodash');
 const crypto = require('crypto');
 const fs = require('fs');
+const { response } = require('../../../helper/response');
 
 module.exports = async function (ctx) {
 	try {
@@ -74,7 +75,7 @@ module.exports = async function (ctx) {
 		if (ipnPayload.b_transactionStatus === TransactionStatus.FAILED) {
 		}
 
-		return { message: this.i18next.t('paymentFail') };
+		return response({ code: 200, message: this.i18next.t('paymentFail') });
 	} catch (error) {
 		throw new MoleculerClientError(error.message, 500, 'PAY_ERROR');
 	}

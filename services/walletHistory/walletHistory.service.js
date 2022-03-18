@@ -21,7 +21,7 @@ module.exports = {
 		getWalletHistory: {
 			rest: {
 				method: 'POST',
-				path: '/walletHistory',
+				fullPath: '/walletHistory',
 				auth: {
 					strategies: ['jwt'],
 					mode: 'required',
@@ -34,7 +34,7 @@ module.exports = {
 					toDate: 'string|optional',
 				},
 			},
-			handler(ctx) {},
+			handler: require('./actions/getWalletHistory.action'),
 		},
 	},
 	/**

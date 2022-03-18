@@ -1,11 +1,15 @@
 const mongoose = require('mongoose');
 const autoIncrement = require('mongoose-auto-increment');
+const { State } = require('../constants/walletHistory.constant');
 
 const walletHistorySchema = new mongoose.Schema({
 	id: {
 		type: Number,
 		required: true,
 		unique: true,
+	},
+	transaction: {
+		type: String,
 	},
 	userId: {
 		type: Number,
@@ -33,6 +37,8 @@ const walletHistorySchema = new mongoose.Schema({
 	},
 	state: {
 		type: String,
+		enum: Object.values(State),
+		default: State.PENDING,
 	},
 });
 

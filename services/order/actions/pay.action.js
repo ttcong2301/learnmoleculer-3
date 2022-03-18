@@ -4,6 +4,7 @@ const uuid = require('uuid').v4;
 const crypto = require('crypto');
 const fs = require('fs');
 const _ = require('lodash');
+const { response } = require('../../../helper/response');
 
 module.exports = async function (ctx) {
 	try {
@@ -27,78 +28,71 @@ module.exports = async function (ctx) {
 			},
 		]);
 
+		if (order.status === Status.PAID) {
+			throw new MoleculerClientError(
+				this.i18next.t('orderAlreadyPaid'),
+				400,
+				'ORDER_ALREADY_PAID'
+			);
+		}
+		if (order.status === Status.CANCELED) {
+			throw new MoleculerClientError(
+				this.i18next.t('orderAlreadyCanceled'),
+				400,
+				'ORDER_ALREADY_CANCELED'
+			);
+		}
+
+		if (order.paymentMethod) {
+			throw new MoleculerClientError(
+				'Order is in payment process',
+				400,
+				'ORDER_IS_PAID',
+				{
+					orderId,
+				}
+			);
+		}
+
 		if (method === PaymentMethods.WALLET) {
 			const updatedWallet = await this.broker.call('Wallet.pay', {
 				userId,
 				amount: order.amount,
-				orderId: order.id,
+				transaction: order.transaction,
 			});
-
-			const updatedOrder = await this.broker.call(
-				'OrderModel.findOneAndUpdate',
-				[
-					{ id: orderId },
-					{
-						status: Status.PAID,
-						payDate: Date.now(),
-						paymentMethod: PaymentMethods.WALLET,
-					},
-					{ new: true, select: '-_id -__v -updatedAt' },
-				]
-			);
-			return updatedOrder;
+			if (updatedWallet.id) {
+				const updatedOrder = await this.broker.call(
+					'OrderModel.findOneAndUpdate',
+					[
+						{ id: orderId },
+						{
+							status: Status.PAID,
+							payDate: Date.now(),
+							paymentMethod: PaymentMethods.WALLET,
+						},
+						{ new: true, select: '-_id -__v -updatedAt' },
+					]
+				);
+				if (updatedOrder.id) {
+					return response({ data: updatedOrder, code: 200 });
+				}
+			}
 		}
 
 		if (method === PaymentMethods.ATM) {
 			const { bankId } = ctx.params.body;
 
-			const order = await this.broker.call('OrderModel.findOne', [
-				{
-					id: orderId,
-					userId,
-				},
-			]);
-			if (order.status === Status.PAID) {
-				throw new MoleculerClientError(
-					this.i18next.t('orderAlreadyPaid'),
-					400,
-					'ORDER_ALREADY_PAID'
-				);
-			}
-			if (order.status === Status.CANCELED) {
-				throw new MoleculerClientError(
-					this.i18next.t('orderAlreadyCanceled'),
-					400,
-					'ORDER_ALREADY_CANCELED'
-				);
-			}
-
-			if (order.paymentMethod) {
-				throw new MoleculerClientError(
-					'Order is in payment process',
-					400,
-					'ORDER_IS_PAID',
-					{
-						orderId,
-					}
-				);
-			}
-
 			const paymentURL = `https://payment.${bankId}.com/?orderId=${orderId}&amount=${order.amount}`;
 
-			const transactionFromPartner = uuid();
+			const transactionFrom3rdParty = uuid();
 
 			const fakeDataFromPartner = {
 				b_amount: order.amount,
 				b_bankId: 'MB',
 				b_payDate: '15/3/2022 10:33',
-				b_transaction: transactionFromPartner,
+				b_transaction: transactionFrom3rdParty,
 				b_transactionStatus: 'SUCCESS',
 			};
-			console.log(
-				'file: pay.action.js - line 103 - fakeDataFromPartner',
-				fakeDataFromPartner
-			);
 
 			// Emulate partner create signature
 			const privateKey = fs.readFileSync(
@@ -117,7 +111,7 @@ module.exports = async function (ctx) {
 			await this.broker.call('OrderModel.findOneAndUpdate', [
 				{ id: orderId },
 				{
-					partnerTransaction: transactionFromPartner,
+					partnerTransaction: transactionFrom3rdParty,
 					paymentMethod: PaymentMethods.ATM,
 					bankId,
 				},
