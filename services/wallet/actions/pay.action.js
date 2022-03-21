@@ -20,13 +20,7 @@ module.exports = async function (ctx) {
 					{ userId },
 				]);
 
-				const order = await this.broker.call('OrderModel.findOne', [
-					{
-						transaction,
-					},
-				]);
-
-				if (wallet.balance < order.amount)
+				if (wallet.balance < amount)
 					throw new MoleculerClientError(
 						'Insufficient balance',
 						400,
